@@ -30,28 +30,33 @@ impl VarDef {
 // 变量定义列表
 #[derive(Debug)]
 pub struct VarDefList {
-   pub defs: HashMap<String, VarDef>,
+   pub defs: Vec<VarDef>, // 保持定义的顺序始终不变
 }
 
 impl VarDefList {
     pub fn new() -> VarDefList {
         VarDefList {
-            defs: HashMap::with_capacity(3)
+            defs: Vec::with_capacity(3)
         }
     }
 
     pub fn add(&mut self, def: VarDef) {
-        self.defs.entry(def.name.clone()).or_insert(def);
+        self.defs.push(def);
     }
 
     pub fn add_more(&mut self, defs: VarDefList) {
-        for (_, def) in defs.defs {
+        for def in defs.defs {
             self.add(def);
         }
     }
 
     pub fn find(&self, name: &str) -> Option<&VarDef> {
-        self.defs.get(name)
+        for def in &self.defs {
+            if def.name == name {
+                return Some(def);
+            }
+        }
+        None
     }
 }
 

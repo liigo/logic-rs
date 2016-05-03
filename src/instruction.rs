@@ -20,7 +20,7 @@ impl InstDef {
     }
 
     pub fn exec(&self, args: &VarBindingList, data: &mut Vec<u8>) {
-        for (_, vardef) in &self.args.defs {
+        for vardef in &self.args.defs {
             let value: &str = {
                 // TODO: use eval_expr()
                 match args.raw_value_of(vardef.name.as_str()) {
@@ -82,7 +82,6 @@ mod tests {
 
         let mut data = vec![];
         movr.exec(&args, &mut data);
-        // FIXME: 参数变量定义顺序的不确定性（HashMap）导致此处测试失败
         assert_eq!(data, vec![0x00,0x14,0xb8,0x4c, 0xff, 0x62,0x2f, 0x0]);
     }
 }
