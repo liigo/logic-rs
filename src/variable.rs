@@ -4,15 +4,17 @@ use std::collections::hash_map::Entry;
 /// 变量定义（声明）
 #[derive(Default, Debug)]
 pub struct VarDef {
-    name: String,
+    pub name: String,
     /// i8,u8,i16,u16,i32,u32,f64,f64,str,hex
-    typ:  String,
+    pub typ:  String,
     /// 'a..z' or 'a...z'
-    range: String,
+    pub range: String,
     /// default value if not binded
-    default: String,
-    note: String,
-    props: String,
+    pub default: String,
+
+    // todo:
+    // pub note: String,
+    // pub props: String,
 }
 
 impl VarDef {
@@ -28,28 +30,28 @@ impl VarDef {
 // 变量定义列表
 #[derive(Debug)]
 pub struct VarDefList {
-   pub vars: HashMap<String, VarDef>,
+   pub defs: HashMap<String, VarDef>,
 }
 
 impl VarDefList {
     pub fn new() -> VarDefList {
         VarDefList {
-            vars: HashMap::with_capacity(3)
+            defs: HashMap::with_capacity(3)
         }
     }
 
-    pub fn add(&mut self, var: VarDef) {
-        self.vars.entry(var.name.clone()).or_insert(var);
+    pub fn add(&mut self, def: VarDef) {
+        self.defs.entry(def.name.clone()).or_insert(def);
     }
 
-    pub fn add_more(&mut self, vars: VarDefList) {
-        for (_, var) in vars.vars {
-            self.add(var);
+    pub fn add_more(&mut self, defs: VarDefList) {
+        for (_, def) in defs.defs {
+            self.add(def);
         }
     }
 
     pub fn find(&self, name: &str) -> Option<&VarDef> {
-        self.vars.get(name)
+        self.defs.get(name)
     }
 }
 
