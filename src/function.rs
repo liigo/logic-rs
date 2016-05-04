@@ -1,4 +1,4 @@
-use engine::Engine;
+use engine::{Engine, Context};
 use statement::{Stmt, StmtKind};
 use variable::{VarDef, VarDefList, VarBinding, VarBindingList};
 use std::collections::HashMap;
@@ -26,7 +26,7 @@ impl FnDef {
         self.stmts.push(stmt);
     }
 
-    pub fn exec(&self, engine: &mut Engine, args: &VarBindingList) -> Result<String,String> {
+    pub fn exec(&self, args: &VarBindingList, context: &mut Context, engine: &Engine) -> Result<String,String> {
 
         Ok("".to_string())
     }
