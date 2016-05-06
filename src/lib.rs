@@ -3,6 +3,7 @@ mod variable;
 mod instruction;
 mod function;
 mod statement;
+mod utils;
 
 
 #[cfg(test)]

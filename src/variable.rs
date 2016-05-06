@@ -61,7 +61,7 @@ impl VarDefList {
 }
 
 // 变量值绑定
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct VarBinding {
     name:  String,
     value: String,
@@ -93,9 +93,9 @@ impl VarBindingList {
         self.bindings.entry(binding.name.clone()).or_insert(binding);
     }
 
-    pub fn add_more(&mut self, bindings: VarBindingList) {
-        for (_, binding) in bindings.bindings {
-            self.add(binding);
+    pub fn add_more(&mut self, bindings: &VarBindingList) {
+        for (_, binding) in &bindings.bindings {
+            self.add(binding.clone());
         }
     }
 
@@ -127,6 +127,10 @@ impl VarBindingList {
                 }
             }
         }
+    }
+
+    pub fn remove_binding(&mut self, name: &str) {
+        self.bindings.remove(name);
     }
 
     // TODO: EvalVar(), EvalExpr(), EvalVarAsStr

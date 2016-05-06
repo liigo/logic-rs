@@ -1,25 +1,26 @@
 use variable::{VarDef, VarDefList, VarBinding, VarBindingList};
+use engine::Context;
 use std::slice;
 
 // 指令的定义和实现
-pub struct InstDef {
+pub struct InsDef {
     pub name: String,
     pub canid: u32,
     pub args: VarDefList,
-    pub note: String,
+    pub note: Option<String>,
 }
 
-impl InstDef {
-    pub fn new(name: &str, canid: u32) -> InstDef {
-        InstDef {
+impl InsDef {
+    pub fn new(name: &str, canid: u32) -> InsDef {
+        InsDef {
             name: name.to_string(),
             canid: canid,
             args: VarDefList::new(),
-            note: "".to_string(),
+            note: None,
         }
     }
 
-    pub fn exec(&self, args: &VarBindingList, data: &mut Vec<u8>) {
+    pub fn exec(&self, args: &VarBindingList, data: &mut Vec<u8>, context: &mut Context) {
         for vardef in &self.args.defs {
             let value: &str = {
                 // TODO: use eval_expr()
@@ -61,12 +62,13 @@ impl InstDef {
 
 #[cfg(test)]
 mod tests {
-    use super::InstDef;
+    use super::InsDef;
     use variable::{VarDef, VarDefList, VarBinding, VarBindingList};
+    use engine::Context;
 
     #[test]
     fn test_instdef() {
-        let mut movr = InstDef::new("move radar", 1000);
+        let mut movr = InsDef::new("move radar", 1000);
         assert!(movr.name == "move radar");
         assert!(movr.canid == 1000);
         movr.args.add(VarDef::new("a", "i32"));
@@ -80,8 +82,8 @@ mod tests {
         args.set_binding("c", "25135");
         args.set_binding("d", "0");
 
-        let mut data = vec![];
-        movr.exec(&args, &mut data);
+        let mut data = Vec::new();
+        movr.exec(&args, &mut data, &mut Context::new());
         assert_eq!(data, vec![0x00,0x14,0xb8,0x4c, 0xff, 0x62,0x2f, 0x0]);
     }
 }

@@ -5,24 +5,37 @@ trait Exec {
     fn exec(args: &VarBindingList, locals: &mut VarBindingList, globals: &mut VarBindingList);
 }
 
-// 语句类型
+/// 语句类型
 pub enum StmtKind {
-    CallInst,    // 调用指令（由用户定义的指令）
-    CallFn,      // 调用函数（由用户定义的函数）
-    Loop,        // 开始循环
-    EndLoop,     // 结束循环
-    Return,      // 返回
-    SetVar,      // 定义变量/绑定变量/变量运算
-    SetLocal,    // 定义局部变量并赋值
-    SetGlobal,   // 定义全局变量并赋值
+    /// 调用指令（由用户定义的指令）；Stmt.content为指令名称，Stmt.args为调用参数。
+    CallIns,
+    /// 调用函数（由用户定义的函数）；Stmt.content为函数名称，Stmt.args为调用参数。
+    CallFn,
+    /// 开始循环
+    Loop,
+    /// 结束循环
+    EndLoop,
+    /// 结束函数执行并返回值；Stmt.content为返回值
+    Return,
+    /// 定义变量/绑定变量/变量运算；Stmt.content为"name=value"的表达式
+    SetVar,
+    /// 定义局部变量并赋值；Stmt.content为"name=value"的表达式
+    SetLocal,
+    /// 定义全局变量并赋值；Stmt.content为"name=value"的表达式
+    SetGlobal,
 }
 
-// 表示函数内的任意一条可执行语句
-// 这个结构可以方便的存入数据库
+/// 表示函数内的任意一条可执行语句
+/// 这个结构可以方便的序列化至数据库或JSON
 pub struct Stmt {
+    /// 语句类型，详见StmtKind的说明
     pub kind: StmtKind,
+    /// 其含义取决于指令类型，详见StmtKind的说明
     pub content: String,
+    /// 语句参数
     pub args: VarBindingList,
+    /// 注释
+    pub note: Option<String>,
 }
 
 impl Stmt {
@@ -31,6 +44,7 @@ impl Stmt {
             kind: kind,
             content: content.to_string(),
             args: VarBindingList::new(),
+            note: None,
         }
     }
 
@@ -39,11 +53,12 @@ impl Stmt {
             kind: kind,
             content: content.to_string(),
             args: args,
+            note: None,
         }
     }
 
-    pub fn new_call_inst(name: &str, args: VarBindingList) -> Stmt {
-        Stmt::new_with_args(StmtKind::CallInst, name, args)
+    pub fn new_call_ins(name: &str, args: VarBindingList) -> Stmt {
+        Stmt::new_with_args(StmtKind::CallIns, name, args)
     }
 
     pub fn new_call_fn(name: &str, args: VarBindingList) -> Stmt {
