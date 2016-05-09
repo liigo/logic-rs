@@ -67,28 +67,162 @@ impl FnDef {
                 }
                 // 定义变量/绑定变量/变量运算
                 StmtKind::SetVar => {
-
+                    self.do_set_var(stmt, context, &mut locals);
                 }
                 // 定义局部变量并赋值
                 StmtKind::SetLocal => {
-                    locals.set_binding("", "");
+                    self.do_set_local(&stmt.content, &mut locals, context);
                 }
                 // 定义全局变量并赋值
                 StmtKind::SetGlobal => {
-                    let (name, value) = split_lr(&stmt.content, "=");
-                    if name != "" {
-                        // TODO: evaluates name and value
-                        context.globals.set_binding(name, value);
-                    } else {
-                        context.log_error(format!("Invalid set global: {}", &stmt.content).as_str());
-                    }
-
+                    self.do_set_global(&stmt.content, context);
                 }
             }
             eip += 1; // we'll execute next statement later
         } // end of loop
 
         result
+    }
+    
+    fn do_set_local(&self, expr: &str, locals: &mut VarBindingList, context: &mut Context) {
+        let (name, value) = split_lr(expr, "=");
+        if name != "" {
+            locals.set_binding(name, value);
+        } else {
+            context.log_error(format!("Invalid set local: {}", expr).as_str());
+        }
+    }
+    
+    fn do_set_global(&self, expr: &str, context: &mut Context) {
+        let (name, value) = split_lr(expr, "=");
+        if name != "" {
+            context.globals.set_binding(name, value);
+        } else {
+            context.log_error(format!("Invalid set global: {}", expr).as_str());
+        }
+    }
+    
+    // 处理变量定义、赋值和运算操作
+    // 所需操作数和操作符来自Stmt.args参数，要求其中包含以下固定名称的值绑定('$varname','$op1','$operand1',...)
+    // 表达式基本形式和参数：$varname $op1 $operand1 $op2 $operand2 (各参数的绑定值均来自args/locals/globals)
+    // 其中$op1为赋值操作符: = := += -= *= /=
+    // 其中$op2为运算操作符: + - * /
+    // 其中$op2和$operand2可被省略
+    // 示例：
+    // x = a
+    // x := a
+    // x += a
+    // x = a + b
+    // x += a + b
+    // 存储结果：
+    // x = a  定义变量x并写入局部变量表locals
+    // x := a 定义变量x并写入全局变量表globals
+    // 使用其他赋值操作符（+= -= *= /=）对变量赋值的，要求该变量必须事先存在（即先用=或:=定义变量）
+    fn do_set_var(&self, stmt: &Stmt, context: &mut Context, locals: &mut VarBindingList) {
+        // we do need these in statement's args:
+        // varname, op1, operand1, op2, operand2   (the last two are optional)
+        let args = &stmt.args;
+        let varname = args.eval_var("$varname", Some(locals), Some(&mut context.globals));
+        let op1 = args.eval_var("$op1", Some(locals), Some(&mut context.globals));
+        let operand1 = args.eval_var("$operand1", Some(locals), Some(&mut context.globals));
+        if varname.is_none() || op1.is_none() || operand1.is_none() {
+            context.log_error("Set var requires named args at least: varname, op1, operand1");
+            return;
+        }
+        let name = varname.as_ref().map_or("", |s| &s);
+        let op2 = args.eval_var("$op2", Some(locals), Some(&mut context.globals));
+        let operand2 = args.eval_var("$operand2", Some(locals), Some(&mut context.globals));
+        
+        let newvalue: Option<String> = if op2.is_some() && operand2.is_some() {
+            Some(self.do_x_op_y(op2.as_ref().map_or("", |s| &s),
+                                operand1.as_ref().map_or("", |s| &s),
+                                operand2.as_ref().map_or("", |s| &s),
+                                &stmt, context, locals))
+        } else {
+            if op2.is_some() || operand2.is_some() {
+                context.log_error("Both $op2 and $operand2 are requried");
+            }
+            operand1.map_or(None, |s| stmt.args.eval(&s, Some(locals), Some(&mut context.globals)))
+        };
+        let newvalue = newvalue.as_ref().map_or("", |s| &s);
+        
+        let op1 = op1.as_ref().map_or("", |s| &s);
+        match op1 {
+            ":=" => { // set new global
+                context.globals.set_binding(name, newvalue);
+            }
+            "=" => { // set new local
+                locals.set_binding(name, newvalue);
+            }
+            
+            _ => {
+                // TODO: += -= *= /=
+                if op1.ends_with("=") {
+                    let oldvalue = locals.eval_var(name, Some(&mut context.globals), None);
+                    let newvalue = self.do_x_op_y(&op1[..op1.len()-1],
+                                                  oldvalue.as_ref().map_or("", |s| &s),
+                                                  newvalue, stmt, context, locals);
+                    if locals.contains(name) {
+                        locals.set_binding(name, &newvalue);
+                    } else if context.globals.contains(name) {
+                        context.globals.set_binding(name, &newvalue);
+                    } else {
+                        context.log_error(&format!("Assign to undefined var: {}", name));
+                    }
+                }
+                 
+            }
+        }
+    }
+    
+    // op: + - * /
+    // 对x和y这两个值执行op运算
+    fn do_x_op_y(&self, op: &str, x: &str, y: &str,
+                 stmt: &Stmt, context: &mut Context, locals: &mut VarBindingList) -> String {
+        let (xl, xr) = split_lr(x, ":");
+        let (yl, yr) = split_lr(y, ":");
+        match op {
+            "+" => {
+                if xl == "int" && yl == "int" {
+                    let x: isize = xr.parse().unwrap_or(0);
+                    let y: isize = yr.parse().unwrap_or(0);
+                    return format!("int:{}", x + y);
+                } else {
+                    return format!("str:{}{}", xr, yr);
+                }
+            }
+            "-" => {
+                if xl == "int" && yl == "int" {
+                    let x: isize = xr.parse().unwrap_or(0);
+                    let y: isize = yr.parse().unwrap_or(0);
+                    return format!("int:{}", x - y);
+                } else {
+                    return "".to_string();
+                }
+            }
+            "*" => {
+                if xl == "int" && yl == "int" {
+                    let x: isize = xr.parse().unwrap_or(0);
+                    let y: isize = yr.parse().unwrap_or(0);
+                    return format!("int:{}", x * y);
+                } else {
+                    return "".to_string();
+                }
+            }
+            "/" => {
+                if xl == "float" && yl == "float" {
+                    let x: f64 = xr.parse().unwrap_or(0.0);
+                    let y: f64 = yr.parse().unwrap_or(0.0);
+                    return format!("int:{}", x / y);
+                } else {
+                    return "".to_string();
+                }
+            }
+            _ => {
+                context.log_error(&format!("Unsupport set var op: {}", op));
+                return "".to_string();
+            }
+        }
     }
 
 }

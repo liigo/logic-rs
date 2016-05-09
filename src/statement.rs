@@ -67,7 +67,7 @@ impl Stmt {
 
     pub fn new_loop(count: u32) -> Stmt {
         let mut stmt = Stmt::new(StmtKind::Loop, "");
-        stmt.args.set_binding("count", &count.to_string());
+        stmt.args.set_binding("$count", &count.to_string());
         stmt
     }
 
@@ -85,11 +85,15 @@ impl Stmt {
 
     pub fn new_set_var_ex(varname: &str, op1: &str, operand1: &str, op2: &str, operand2: &str) -> Stmt {
         let mut stmt = Stmt::new(StmtKind::SetVar, "");
-        stmt.args.set_binding("varname", varname);
-        stmt.args.set_binding("op1", op1);
-        stmt.args.set_binding("operand1", operand1);
-        stmt.args.set_binding("op2", op2);
-        stmt.args.set_binding("operand2", operand2);
+        stmt.args.set_binding("$varname", varname);
+        stmt.args.set_binding("$op1", op1);
+        stmt.args.set_binding("$operand1", operand1);
+        if op2.len() > 0 {
+            stmt.args.set_binding("$op2", op2);
+            if operand2.len() > 0 {
+                stmt.args.set_binding("$operand2", operand2);
+            }
+        }
         stmt
     }
 

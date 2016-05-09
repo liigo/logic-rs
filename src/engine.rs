@@ -126,4 +126,30 @@ mod tests {
         assert_eq!(context.globals.raw_value_of("a"), Some("1"));
         assert_eq!(context.globals.raw_value_of("$return"), Some("123")); // fn1 returns "123"
     }
+    
+    #[test]
+    fn test_set_var() {
+        let engine = {
+            let mut fndef = FnDef::new("foo");
+            fndef.add_stmt(Stmt::new_set_var("a", "=", "Hello")); // a = "Hello" (str)
+            fndef.add_stmt(Stmt::new_set_var("b", "=", "var:a"));
+            fndef.add_stmt(Stmt::new_set_var("a", "+=", "World"));
+            fndef.add_stmt(Stmt::new_set_var("b", "+=", "var:a"));
+            fndef.add_stmt(Stmt::new_set_var("g1", ":=", "100"));
+            fndef.add_stmt(Stmt::new_set_var("g2", ":=", "var:b"));
+            fndef.add_stmt(Stmt::new_set_var("gi1", ":=", "int:200")); // gi1 = 200 (int)
+            fndef.add_stmt(Stmt::new_set_var("gi1", "+=", "int:2")); // gi1 += 2
+            fndef.add_stmt(Stmt::new_set_var_ex("gi2", ":=", "var:gi1", "-", "int:2")); // gi2 := gi1 - 2
+            let mut engine = Engine::new();
+            engine.add_fn(fndef);
+            engine
+        };
+        let mut context = Context::new();
+        
+        engine.exec_fn("foo", &VarBindingList::new(), &mut context);
+        assert_eq!(context.globals.eval_var("g1", None, None), Some("100".to_string()));
+        assert_eq!(context.globals.eval_var("g2", None, None), Some("str:HelloHelloWorld".to_string())); // string concat
+        assert_eq!(context.globals.eval_var("gi1", None, None), Some("int:202".to_string())); // integer add
+        assert_eq!(context.globals.eval_var("gi2", None, None), Some("int:200".to_string()));
+    }
 }
