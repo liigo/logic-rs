@@ -1,6 +1,6 @@
 use engine::{Engine, Context};
 use statement::{Stmt, StmtKind};
-use variable::{VarDef, VarDefList, VarBinding, VarBindingList};
+use variable::{VarDefList, VarBindingList};
 use std::collections::HashMap;
 use utils::split_lr;
 
@@ -28,7 +28,7 @@ impl FnDef {
     }
 
     pub fn exec(&self, args: &VarBindingList, context: &mut Context, engine: &Engine) -> Result<(),String> {
-        let mut eip = 0; // 指向将要执行（或正在执行）的语句
+        let mut eip: usize = 0; // 指向将要执行（或正在执行）的语句
         let mut result: Result<(),String> = Ok(());
         // 初始化函数局部变量（复制函数参数作为局部变量）
         let mut locals = VarBindingList::new();
@@ -38,7 +38,7 @@ impl FnDef {
 
         // 下面一个大的循环依次执行每一条语句
         loop {
-            if eip < 0 || eip >= self.stmts.len() {
+            if eip >= self.stmts.len() {
                 break;
             }
             let stmt = &self.stmts[eip];

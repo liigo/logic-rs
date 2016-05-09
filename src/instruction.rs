@@ -1,4 +1,4 @@
-use variable::{VarDef, VarDefList, VarBinding, VarBindingList};
+use variable::{VarDefList, VarBindingList};
 use engine::Context;
 use std::slice;
 
@@ -21,6 +21,7 @@ impl InsDef {
     }
 
     pub fn exec(&self, args: &VarBindingList, data: &mut Vec<u8>, context: &mut Context) {
+        context.log_info(&format!("exec instruction: {}", self.name));
         for vardef in &self.args.defs {
             let value: &str = {
                 // TODO: use eval_expr()
@@ -63,7 +64,7 @@ impl InsDef {
 #[cfg(test)]
 mod tests {
     use super::InsDef;
-    use variable::{VarDef, VarDefList, VarBinding, VarBindingList};
+    use variable::{VarDef, VarBindingList};
     use engine::Context;
 
     #[test]

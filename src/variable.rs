@@ -112,7 +112,7 @@ impl VarBindingList {
     /// 如果不带前缀的话可能会导致歧义，如'str:var:xxx'去掉前缀'str:'后含义迥异。
     pub fn set_binding(&mut self, name: &str, value: &str) {
         match self.bindings.entry(name.to_string()) {
-            Entry::Vacant(mut entry) => {
+            Entry::Vacant(entry) => {
                 // add new binding
                 entry.insert(VarBinding::new(name, value));
             }

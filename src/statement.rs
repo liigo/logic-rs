@@ -1,4 +1,4 @@
-use variable::{VarBinding, VarBindingList};
+use variable::{VarBindingList};
 
 // not use currently
 trait Exec {
