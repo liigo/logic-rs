@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
+use utils::split_lr;
 
 /// 变量定义（声明）
 #[derive(Default, Debug)]
@@ -132,8 +133,48 @@ impl VarBindingList {
     pub fn remove_binding(&mut self, name: &str) {
         self.bindings.remove(name);
     }
-
-    // TODO: EvalVar(), EvalExpr(), EvalVarAsStr
+    
+    /// 对指定名称的变量求值
+    pub fn eval_var(&self, name: &str, upvars: Option<&VarBindingList>) -> Option<String> {
+        let value = self.raw_value_of(name)
+                        .or_else(|| { upvars.map_or(None, |v| v.raw_value_of(name)) });
+        value.map_or(None, |value_str| {
+            let (l,r) = split_lr(value_str, ":");
+            if l == "var" {
+                self.eval_var(r, upvars)
+            } else {
+                Some(value_str.to_string())
+            }
+        })
+    }
+    
+    /// 对指定名称的变量求值，但仅返回不带前缀的文本部分（如"int:123"返回"123"）
+    pub fn eval_var_str(&self, name: &str, upvars: Option<&VarBindingList>) -> Option<String> {
+        self.eval_var(name, upvars).map_or(None, |value_str| {
+            let (l,r) = split_lr(&value_str, ":");
+            assert!(l != "var");
+            Some(r.to_string())  
+        })
+    }
+    
+    // 对表达式求值。如果expr是"var:name"形式的变量，返回该变量的值，否则返回expr本身。
+    pub fn eval(&self, expr: &str, upvars: Option<&VarBindingList>) -> Option<String> {
+        let (l,r) = split_lr(&expr, ":");
+        if l == "var" {
+            self.eval_var(r, upvars)
+        } else {
+            Some(expr.to_string())
+        }
+    }
+    
+    // 返回值的文本部分
+    pub fn eval_str(&self, expr: &str, upvars: Option<&VarBindingList>) -> Option<String> {
+        self.eval(expr, upvars).map_or(None, |value_str| {
+            let (l,r) = split_lr(&value_str, ":");
+            assert!(l != "var");
+            Some(r.to_string())
+        })
+    }
 }
 
 #[cfg(test)]
@@ -179,5 +220,63 @@ mod tests {
         bindings.set_binding("c", ""); // remove old binding
         assert!(bindings.contains("c") == false);
         assert!(bindings.raw_value_of("c") == None);
+    }
+    
+    #[test]
+    fn test_eval() {
+        let locals = {
+            let mut locals = VarBindingList::new();
+            locals.set_binding("a", "1");
+            locals.set_binding("b", "var:a");
+            locals.set_binding("c", "var:g1");
+            locals.set_binding("d", "var:g2");
+            locals.set_binding("e", "int:123");
+            
+            locals
+        };
+        let globals = {
+            let mut globals = VarBindingList::new();
+            globals.set_binding("g1", "100");
+            globals.set_binding("g2", "var:g3");
+            globals.set_binding("g3", "var:a"); // ref to locals var "a"
+            globals.set_binding("g4", "var:c");
+            globals.set_binding("g5", "var:x");
+            globals
+        };
+        
+        // evaluates without upvars
+        assert_eq!(locals.eval_var("a", None), Some("1".to_string())); // a = "1"
+        assert_eq!(locals.eval_var("b", None), Some("1".to_string())); // b -> a -> "1"
+        assert_eq!(locals.eval_var("c", None), None); // no upvars, so no "g1" is defined
+        assert_eq!(locals.eval_var("x", None), None); // no "x"
+        assert_eq!(locals.eval_var("e", None), Some("int:123".to_string())); // e = "int:123"
+        assert_eq!(globals.eval_var("g1", None), Some("100".to_string())); // g1 = "100"
+        assert_eq!(globals.eval_var("gx", None), None); // no "gx"
+        assert_eq!(globals.eval_var("g3", None), None); // no "c"
+        
+        // evaluates with upvars 
+        assert_eq!(locals.eval_var("c", Some(&globals)), Some("100".to_string())); // c -> g1 -> "100"
+        assert_eq!(locals.eval_var("d", Some(&globals)), Some("1".to_string())); // d -> g2 -> g3 -> a -> "1"
+        assert_eq!(locals.eval_var("x",  Some(&globals)), None); // no "x"
+        assert_eq!(locals.eval_var("g1", Some(&globals)), Some("100".to_string())); // g1 = "100"
+        assert_eq!(locals.eval_var("g2", Some(&globals)), Some("1".to_string())); // g2 -> g3 -> a -> "1"
+        assert_eq!(locals.eval_var("g4", Some(&globals)), Some("100".to_string())); // g4 -> c -> g1 -> "100"
+        assert_eq!(locals.eval_var("g5", Some(&globals)), None); // no "x"
+        assert_eq!(locals.eval_var("gx", Some(&globals)), None); // no "gx"
+        
+        // eval_var_str()
+        assert_eq!(locals.eval_var_str("e", None), Some("123".to_string()));
+        assert_eq!(locals.eval_var_str("d", Some(&globals)), Some("1".to_string()));
+        assert_eq!(locals.eval_var_str("x", Some(&globals)), None);
+        
+        // eval() and eval_str()
+        assert_eq!(locals.eval("var:e", None), Some("int:123".to_string()));
+        assert_eq!(locals.eval_str("var:e", None), Some("123".to_string()));
+        assert_eq!(locals.eval("var:d", Some(&globals)), Some("1".to_string()));
+        assert_eq!(locals.eval_str("var:d", Some(&globals)), Some("1".to_string()));
+        assert_eq!(locals.eval("var:x", Some(&globals)), None);
+        assert_eq!(locals.eval_str("var:x", Some(&globals)), None);
+        assert_eq!(locals.eval("int:123", Some(&globals)), Some("int:123".to_string()));
+        assert_eq!(locals.eval_str("int:123", Some(&globals)), Some("123".to_string()));
     }
 }
