@@ -156,7 +156,7 @@ impl VarBindingList {
         self.eval_var(name, upvars1, upvars2).map_or(None, |value_str| {
             let (l,r) = split_lr(&value_str, ":");
             assert!(l != "var");
-            Some(r.to_string())  
+            Some(r.to_string())
         })
     }
     
@@ -287,6 +287,7 @@ mod tests {
         assert_eq!(locals.eval_var_str("x", Some(&globals), None), None);
         
         // eval() and eval_str()
+        assert_eq!(locals.eval("var:b", None, None), Some("1".to_string())); // b -> a = "1"
         assert_eq!(locals.eval("var:e", None, None), Some("int:123".to_string()));
         assert_eq!(locals.eval_str("var:e", None, None), Some("123".to_string()));
         assert_eq!(locals.eval("var:d", Some(&globals), None), Some("1".to_string()));

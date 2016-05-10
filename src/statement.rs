@@ -106,25 +106,37 @@ impl Stmt {
         Stmt::new(StmtKind::SetGlobal, expr)
     }
     
-    pub fn set_runtime_binding(&self, name: &str, value: &str) {
+    pub fn rtargs_init(&self, args: &VarBindingList) {
         let mut rtargs = self.rt_args.borrow_mut();
-        if rtargs.is_some() {
-            rtargs.as_mut().map(|bindings| bindings.set_binding(name, value));
-        } else {
-            let mut bindings = VarBindingList::new();
-            bindings.set_binding(name, value);
-            *rtargs = Some(bindings);
-        }
+        assert!(rtargs.is_none(), "please call rtargs_init() **before** any other rtargs_*() call");
+        let mut bindings = VarBindingList::new();
+        bindings.add_more(args);
+        *rtargs = Some(bindings);
     }
     
-    pub fn get_runtime_binding_raw_value(&self, name: &str) -> Option<String> {
+    pub fn rtargs_set(&self, name: &str, value: &str) {
+        let mut rtargs = self.rt_args.borrow_mut();
+        assert!(rtargs.is_some(), "please call rtargs_init() **first**");
+        rtargs.as_mut().map(|bindings| bindings.set_binding(name, value));
+    }
+    
+    pub fn rtargs_eval(&self, expr: &str, upvars1: Option<&VarBindingList>,
+                                          upvars2: Option<&VarBindingList>) -> Option<String> {
         let rtargs = self.rt_args.borrow();
         rtargs.as_ref().map_or(None, |bindings| {
-            bindings.raw_value_of(name).map_or(None, |s| Some(s.to_string()))
+            bindings.eval(expr, upvars1, upvars2)
+        })
+    }
+
+    pub fn rtargs_eval_var(&self, expr: &str, upvars1: Option<&VarBindingList>,
+                                              upvars2: Option<&VarBindingList>) -> Option<String> {
+        let rtargs = self.rt_args.borrow();
+        rtargs.as_ref().map_or(None, |bindings| {
+            bindings.eval_var(expr, upvars1, upvars2)
         })
     }
     
-    pub fn clean_runtime_bindings(&self) {
+    pub fn rtargs_clean(&self) {
         *self.rt_args.borrow_mut() = None;
     }
 }
@@ -132,25 +144,34 @@ impl Stmt {
 #[cfg(test)]
 mod tests {
     use statement::Stmt;
+    use variable::VarBindingList;
     
     #[test]
     fn test_rt_args() {
-        let stmt = Stmt::new_loop(6);
-        let a = stmt.get_runtime_binding_raw_value("a");
-        assert_eq!(a, None);
-        stmt.set_runtime_binding("a", "123");
-        let a = stmt.get_runtime_binding_raw_value("a");
-        assert_eq!(a, Some("123".to_string()));
-        stmt.set_runtime_binding("b", "var:a");
-        let b = stmt.get_runtime_binding_raw_value("b");
-        assert_eq!(b, Some("var:a".to_string()));
-        let c = stmt.get_runtime_binding_raw_value("c");
-        assert_eq!(c, None);
+        let mut init_args = VarBindingList::new();
+        init_args.set_binding("z", "200");
         
-        stmt.clean_runtime_bindings();
-        let a = stmt.get_runtime_binding_raw_value("a");
+        let stmt = Stmt::new_loop(6);
+        stmt.rtargs_init(&init_args);
+        let a = stmt.rtargs_eval_var("a", None, None);
         assert_eq!(a, None);
-        let b = stmt.get_runtime_binding_raw_value("b");
+        stmt.rtargs_set("a", "123");
+        let a = stmt.rtargs_eval_var("a", None, None);
+        assert_eq!(a, Some("123".to_string()));
+        stmt.rtargs_set("b", "var:a");
+        let b = stmt.rtargs_eval_var("b", None, None);
+        assert_eq!(b, Some("123".to_string()));
+        let b = stmt.rtargs_eval("var:b", None, None);
+        assert_eq!(b, Some("123".to_string()));
+        let c = stmt.rtargs_eval_var("c", None, None);
+        assert_eq!(c, None);
+        let z = stmt.rtargs_eval_var("z", None, None);
+        assert_eq!(z, Some("200".to_string())); // init args works
+        
+        stmt.rtargs_clean();
+        let a = stmt.rtargs_eval_var("a", None, None);
+        assert_eq!(a, None);
+        let b = stmt.rtargs_eval_var("b", None, None);
         assert_eq!(b, None);
     }
 }
