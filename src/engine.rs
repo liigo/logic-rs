@@ -154,4 +154,40 @@ mod tests {
         assert_eq!(context.globals.eval_var("gi1", None, None), Some("int:202".to_string())); // integer add
         assert_eq!(context.globals.eval_var("gi2", None, None), Some("int:200".to_string()));
     }
+    
+    #[test]
+    fn test_loop() {
+        let engine = {
+            let mut foo = FnDef::new("foo");
+            foo.add_stmt(Stmt::new_set_global("s=str:"));
+            foo.add_stmt(Stmt::new_set_global("x=int:0"));
+            foo.add_stmt(Stmt::new_set_global("y=int:100"));
+            foo.add_stmt(Stmt::new_set_global("z=0"));
+            foo.add_stmt(Stmt::new_loop(3));    // loop1  x3
+              foo.add_stmt(Stmt::new_set_var("s", "+=", "Hi"));
+              foo.add_stmt(Stmt::new_loop(6));     // loop2  x6
+                foo.add_stmt(Stmt::new_set_var("x", "+=", "int:1"));
+              foo.add_stmt(Stmt::new_end_loop());  // endloop2
+              foo.add_stmt(Stmt::new_set_var("y", "-=", "int:5"));
+            foo.add_stmt(Stmt::new_end_loop()); // endloop1
+            foo.add_stmt(Stmt::new_set_global("z=1"));
+
+            let mut engine = Engine::new();
+            engine.add_fn(foo);
+            engine
+        };
+
+        let mut context = Context::new();
+        let args = VarBindingList::new();
+
+        // execute fn foo more than one time (to test cleanup of rtargs of loop statements)
+        for i in 0..2 {
+            let result = engine.exec_fn("foo", &args, &mut context);
+            assert!(result.is_ok());
+            assert_eq!(context.globals.eval_var("z", None, None), Some("1".to_string())); // fn foo exits normally
+            assert_eq!(context.globals.eval_var("s", None, None), Some("str:HiHiHi".to_string())); // Hi x3
+            assert_eq!(context.globals.eval_var("y", None, None), Some("int:85".to_string()));     // 100 - 5x3
+            assert_eq!(context.globals.eval_var("x", None, None), Some("int:18".to_string()));     // 0 + 1x6x3
+        }
+    }
 }

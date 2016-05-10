@@ -135,7 +135,14 @@ impl Stmt {
             bindings.eval_var(expr, upvars1, upvars2)
         })
     }
-    
+
+    pub fn rtargs_contains(&self, expr: &str) -> bool {
+        let rtargs = self.rt_args.borrow();
+        rtargs.as_ref().map_or(false, |bindings| {
+            bindings.contains(expr)
+        })
+    }
+
     pub fn rtargs_clean(&self) {
         *self.rt_args.borrow_mut() = None;
     }
