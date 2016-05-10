@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-#![warn(unused_variables)]
+#![allow(unused_variables)]
 
 mod engine;
 mod variable;

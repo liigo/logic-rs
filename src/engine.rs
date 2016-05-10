@@ -3,11 +3,13 @@ use function::FnDef;
 use instruction::InsDef;
 use std::collections::HashMap;
 
-// Logic Engine
-// 管理指令函数和全局变量，执行函数
+/// Logic Engine
+/// 管理指令函数和全局变量，执行函数
 pub struct Engine {
-    pub inss: HashMap<String, InsDef>, // 指令表
-    pub fns: HashMap<String, FnDef>,     // 函数表
+    /// 指令表
+    pub inss: HashMap<String, InsDef>,
+    /// 函数表
+    pub fns: HashMap<String, FnDef>,
 }
 
 impl Engine {
@@ -146,7 +148,7 @@ mod tests {
         };
         let mut context = Context::new();
         
-        engine.exec_fn("foo", &VarBindingList::new(), &mut context);
+        engine.exec_fn("foo", &VarBindingList::new(), &mut context).expect("ok");
         assert_eq!(context.globals.eval_var("g1", None, None), Some("100".to_string()));
         assert_eq!(context.globals.eval_var("g2", None, None), Some("str:HelloHelloWorld".to_string())); // string concat
         assert_eq!(context.globals.eval_var("gi1", None, None), Some("int:202".to_string())); // integer add
